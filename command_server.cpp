@@ -1,9 +1,11 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <map>
 #include <mutex>
 #include <string>
 #include <cstring>
+#include <cstdlib>
 #include <unistd.h>       // close()
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -14,6 +16,68 @@ const int BUFFER_SIZE = 1024;
 
 std::mutex connectionMutex; // Mutex to synchronize access to shared resources
 bool running = true;
+
+enum Command_Type {
+    OS_COMMAND,
+    XDG_OPEN,
+    TERMINAL,
+    KEYSTROKE,
+};
+
+std::map<std::string, Command_Type> COMMAND_TYPE_MAP = {
+    {"os", OS_COMMAND},
+    {"xdg", XDG_OPEN},
+    {"key", KEYSTROKE},
+};
+
+void call_thread(std::string param) {
+    std::thread t(system, param.c_str());
+    t.join();
+}
+
+struct Command {
+    std::string code;
+    std::string description;
+
+    Command_Type type;
+    std::string params;
+    bool multiple = false;
+
+    // Command(const std::string c, const std::string d, const Command_Type t, const std::string p):
+    //     code{c}, description{d}, type{t}, params{p} {}
+    // Command(std::string code, std::string desc, std::string type, std::string param):
+    //     code{code}, description{desc}, type{COMMAND_TYPE_MAP[type]}, params{param} {}
+
+    void execute(std::string custom_params = "") {
+        if (type == OS_COMMAND) {
+            call_thread(params);
+        }
+        else if (type == XDG_OPEN) {
+            call_thread("xdg-open " + params);
+        }
+        else if (type == TERMINAL) {
+            call_thread("gnome-terminal -- " + params);
+        }
+    }
+};
+
+std::map<std::string, Command> COMMANDS = {
+    {"uw", Command{"uw", "Open UW Folder", XDG_OPEN, "~/Desktop/UWaterloo/3A_Winter_2025"}},
+    {"l", Command{"l", "Open Learn", XDG_OPEN, "https://learn.uwaterloo.ca/d2l/home"}},
+    {"cm", Command{"cm", "Open Crowdmark", XDG_OPEN, "https://app.crowdmark.com/student/courses"}},
+    {"ww", Command{"ww", "Open WaterlooWorks", XDG_OPEN, "https://waterlooworks.uwaterloo.ca/home.htm"}},
+    {"res", Command{"res", "Open my Resume", XDG_OPEN, "~/Documents/Resume/Amol_Venkataraman-RESUME-2025.pdf"}},
+    {"ts", Command{"ts", "Open my Transcript", XDG_OPEN, "~/Documents/Resume/SSR_TSRPT.pdf"}},
+    {"t", Command{"t", "Open terminal", OS_COMMAND, "gnome-terminal"}},
+    {"hs", Command{"hs", "Open Housesigma", XDG_OPEN, "https://housesigma.com/on/map/"}},
+    {"map", Command{"map", "Open Google Maps", XDG_OPEN, "https://maps.google.com/"}},
+    {"chat", Command{"chat", "Open ChatGPT", XDG_OPEN, "https://chatgpt.com/"}},
+    {"htop", Command{"htop", "Run htop", TERMINAL, "htop"}},
+    {"mc", Command{"mc", "Launch Minecraft", TERMINAL, "~/Games/UltimMC/bin/UltimMC"}},
+    {"as", Command{"as", "Launch Android Studio", TERMINAL, "~/Android/android-studio/bin/studio.sh"}},
+    {"auda", Command{"auda", "Launch Audacity", TERMINAL, "~/Downloads/audacity-linux-3.7.1-x64-20.04.AppImage"}},
+    {"idea", Command{"idea", "Launch IntelliJ IDEA", TERMINAL, "/opt/ideaIC-2024.3.1.1/idea-IC-243.22562.218/bin/idea.sh"}},
+};
 
 // Function to handle a single client connection
 void handleClient(int clientSocket, sockaddr_in clientAddress) {
@@ -36,6 +100,18 @@ void handleClient(int clientSocket, sockaddr_in clientAddress) {
 
         // Print received message
         std::cout << "Message from " << clientIP << ":" << clientPort << ": " << buffer << std::endl;
+
+        std::string cmd = buffer;
+
+        if (cmd[0] == '.') {
+            call_thread(cmd.substr(1));
+        }
+        else if (cmd[0] == '-') {
+            call_thread("gnome-terminal -- " + cmd.substr(1));
+        }
+        else if (COMMANDS.count(cmd)) {
+            COMMANDS[cmd].execute();
+        }
 
         // Echo the message back to the client
         std::string response = "Server received: " + std::string(buffer);

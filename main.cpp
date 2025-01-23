@@ -11,7 +11,7 @@
 #define BGCOLOUR 185, 185, 185, 255
 #define FGCOLOUR 20, 20, 20, 255
 
-const int FPS = 30;
+const int FPS = 60;
 const int FRAME_DELAY = 1000 / FPS; // Milliseconds per frame
 
 const int WIN_WIDTH = 400;
@@ -79,23 +79,19 @@ int main() {
 
     // Connect to server
     if (connect(client_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        std::cerr << "Connection failed\n";
+        std::cerr << "Could not connect to server\n";
         close(client_sock);
         SDL_Quit();
         return 1;
     }
 
-    // Send message to background process
-    const char* message = "Hello from SDL2 GUI App!";
-    send(client_sock, message, strlen(message), 0);
-
-    // Receive response from background process
-    char buffer[128];
-    ssize_t bytesReceived = recv(client_sock, buffer, sizeof(buffer) - 1, 0);
-    if (bytesReceived > 0) {
-        buffer[bytesReceived] = '\0';
-        std::cout << "Received from background process: " << buffer << std::endl;
-    }
+    // // Receive response from background process
+    // char buffer[128];
+    // ssize_t bytesReceived = recv(client_sock, buffer, sizeof(buffer) - 1, 0);
+    // if (bytesReceived > 0) {
+    //     buffer[bytesReceived] = '\0';
+    //     std::cout << "Received from background process: " << buffer << std::endl;
+    // }
 
 
     SDL_Window* window = SDL_CreateWindow("TotalControl", 
@@ -133,10 +129,10 @@ int main() {
 
     SDL_Rect textRect = {0, 0, 0, 0};
 
-    std::string header = "Type out a command and press ENTER to run";
+    std::string header = "Enter a command and press ENTER to run";
     std::string command = "";
-    bool special_cmd = false;
-    std::string special_txt = "";
+    bool special_cmd = true;
+    std::string special_txt = "Autocomplete is not ready yet";
 
     std::vector<std::pair<std::string, std::string> > available_commands = {
         {"se", "Types out university email"},
@@ -171,15 +167,24 @@ int main() {
                     }
                 }
                 else if (keyPressed == SDLK_RETURN || keyPressed == SDLK_KP_ENTER) {
-
+                    if (command.size()) {
+                        const char* message = command.c_str();
+                        send(client_sock, message, strlen(message), 0);
+                        running = false;
+                    }
                 }
 
                 else if (keyName.size() == 1) {
-                    if (keyName[0] >= 48 && keyName[0] <= 57) {
-
+                    if (keyName[0] >= 49 && keyName[0] <= 53) {
+                        const char* message = available_commands[keyName[0] - 48].first.c_str();
+                        send(client_sock, message, strlen(message), 0);
+                        running = false;
                     }
                     else if (keyName[0] >= 65 && keyName[0] <= 90) {
                         command += keyName[0] + 32;
+                    }
+                    else if (keyName == "." || keyName == "-") {
+                        command += keyName[0];
                     }
                 }
             }
