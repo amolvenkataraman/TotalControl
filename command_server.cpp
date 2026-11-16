@@ -11,11 +11,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "token.h"
+
 const int PORT = 3142;
 const int BUFFER_SIZE = 1024;
 
 std::mutex connectionMutex; // Mutex to synchronize access to shared resources
 bool running = true;
+std::string AUTH_TOKEN; // Every message must start with this, followed by a newline
 
 enum Command_Type {
     OS_COMMAND,
@@ -98,10 +101,20 @@ void handleClient(int clientSocket, sockaddr_in clientAddress) {
             break;
         }
 
-        // Print received message
-        std::cout << "Message from " << clientIP << ":" << clientPort << ": " << buffer << std::endl;
+        // Messages are "<token>\n<command>". Drop the connection on a missing or wrong token,
+        // since commands can run arbitrary shell code (see the '.' prefix below).
+        std::string message = buffer;
+        std::size_t newline = message.find('\n');
+        if (newline == std::string::npos || !token_matches(message.substr(0, newline), AUTH_TOKEN)) {
+            std::cout << "Rejected unauthenticated message from " << clientIP << ":" << clientPort << std::endl;
+            send(clientSocket, "Unauthorized", 12, 0);
+            close(clientSocket);
+            break;
+        }
+        std::string cmd = message.substr(newline + 1);
+        if (cmd.empty()) continue;
 
-        std::string cmd = buffer;
+        std::cout << "Command from " << clientIP << ":" << clientPort << ": " << cmd << std::endl;
 
         if (cmd[0] == '.') {
             call_thread(cmd.substr(1));
@@ -114,12 +127,18 @@ void handleClient(int clientSocket, sockaddr_in clientAddress) {
         }
 
         // Echo the message back to the client
-        std::string response = "Server received: " + std::string(buffer);
+        std::string response = "Server received: " + cmd;
         send(clientSocket, response.c_str(), response.length(), 0);
     }
 }
 
 int main() {
+    AUTH_TOKEN = load_token();
+    if (AUTH_TOKEN.empty()) {
+        std::cerr << "No token: set TOTALCONTROL_TOKEN or write one to ~/.config/totalcontrol/token" << std::endl;
+        return 1;
+    }
+
     // Create a socket
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0) {
@@ -131,10 +150,10 @@ int main() {
     int opt = 1;
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    // Configure server address
+    // Configure server address: localhost only, never other machines on the network
     sockaddr_in serverAddress{};
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_addr.s_addr = INADDR_ANY;
+    serverAddress.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     serverAddress.sin_port = htons(PORT);
 
     // Bind the socket to the address

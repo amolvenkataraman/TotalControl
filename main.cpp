@@ -8,6 +8,8 @@
 #include <thread>
 #include <vector>
 
+#include "token.h"
+
 #define BGCOLOUR 185, 185, 185, 255
 #define FGCOLOUR 20, 20, 20, 255
 
@@ -51,6 +53,12 @@ SDL_Texture* RenderText(SDL_Renderer* renderer, TTF_Font* font, const std::strin
 }
 
 int main() {
+    const std::string token = load_token();
+    if (token.empty()) {
+        std::cerr << "No token: set TOTALCONTROL_TOKEN or write one to ~/.config/totalcontrol/token\n";
+        return 1;
+    }
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
         return 1;
@@ -84,6 +92,12 @@ int main() {
         SDL_Quit();
         return 1;
     }
+
+    // The server expects "<token>\n<command>"
+    auto send_command = [&](const std::string& cmd) {
+        const std::string message = token + "\n" + cmd;
+        send(client_sock, message.c_str(), message.size(), 0);
+    };
 
     // // Receive response from background process
     // char buffer[128];
@@ -168,16 +182,14 @@ int main() {
                 }
                 else if (keyPressed == SDLK_RETURN || keyPressed == SDLK_KP_ENTER) {
                     if (command.size()) {
-                        const char* message = command.c_str();
-                        send(client_sock, message, strlen(message), 0);
+                        send_command(command);
                         running = false;
                     }
                 }
 
                 else if (keyName.size() == 1) {
                     if (keyName[0] >= 49 && keyName[0] <= 53) {
-                        const char* message = available_commands[keyName[0] - 48].first.c_str();
-                        send(client_sock, message, strlen(message), 0);
+                        send_command(available_commands[keyName[0] - 48].first);
                         running = false;
                     }
                     else if (keyName[0] >= 65 && keyName[0] <= 90) {

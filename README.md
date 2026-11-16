@@ -9,7 +9,8 @@ command. It started as a Python hackathon project in 2023, and in 2025 I began r
 
 ## C++ version (2025, Linux)
 
-There are two programs, and they talk over a TCP socket on port 3142.
+There are two programs, and they talk over a TCP socket on `127.0.0.1:3142`. Every message starts
+with a shared secret token (see [Security](#security)).
 
 - **`command_server.cpp`**: a background server that handles each client connection on its own thread.
   Each message it receives is one command:
@@ -28,6 +29,12 @@ There are two programs, and they talk over a TCP socket on port 3142.
 
 ```sh
 sudo apt install g++ libsdl2-dev libsdl2-ttf-dev
+
+# one-time: create the shared token that both programs read
+mkdir -p ~/.config/totalcontrol
+head -c 32 /dev/urandom | base64 > ~/.config/totalcontrol/token
+chmod 600 ~/.config/totalcontrol/token
+
 g++ -o command_server command_server.cpp -pthread
 make build                 # builds the popup as ./sdl_app
 ./command_server &         # leave it running
@@ -38,12 +45,23 @@ The popup expects Fira Mono at `/usr/share/fonts/opentype/fira/FiraMono-Medium.o
 in `main.cpp` if your system has it somewhere else. The command table points at paths on my
 machine, so edit `COMMANDS` before using it.
 
-> **Security note:** the server listens on every network interface (`INADDR_ANY`) and runs whatever it
-> receives. A message starting with `.` goes straight to `system()`, so anyone who can reach port 3142
-> can run commands as you. Before running it, bind the server to `127.0.0.1`
-> (`serverAddress.sin_addr.s_addr = htonl(INADDR_LOOPBACK);`) or block the port with a firewall.
+### Security
 
-Known rough edges, since this is still work in progress:
+The server runs commands it receives, and a message starting with `.` goes straight to `system()`.
+That means anything that can talk to it can run shell commands as you. Two things limit that:
+
+- The server only listens on `127.0.0.1`, so other machines can't reach it.
+- Every message must be `<token>\n<command>`. The token comes from the `TOTALCONTROL_TOKEN`
+  environment variable, or else the first line of `~/.config/totalcontrol/token`. Both programs
+  refuse to start without one. The server checks every message, closes the connection on a missing or
+  wrong token, and compares tokens in constant time.
+
+Any program running as your user can still read the token file, so keep it `chmod 600` and treat
+the server as a convenience for your own desktop session, not a security boundary.
+
+### Known rough edges
+
+This is still work in progress:
 
 - Number key `1` picks the second quick-list entry, and `5` reads past the end of the list.
 - The popup's quick list (`se`, `sem`, `ssh`, ...) is left over from the Python version and doesn't
