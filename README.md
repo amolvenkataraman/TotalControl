@@ -1,7 +1,7 @@
 <!-- header:start -->
 <div align="center">
 
-<img alt="TotalControl: A keyboard-driven command launcher: press a shortcut, type a short command, and it runs." src=".github/assets/banner.svg" width="100%">
+<img alt="TotalControl: A keyboard-driven command launcher: press a shortcut, type a short command, and it runs." src="https://raw.githubusercontent.com/amolvenkataraman/TotalControl/main/.github/assets/banner.svg" width="100%">
 
 ![platform: Linux](https://img.shields.io/badge/platform-Linux-0f6f68?labelColor=15181c&color=0f6f68)
 
@@ -9,7 +9,7 @@
 
 </div>
 
-<a href="https://haiscale.amolven.com/"><img alt="HAI Scale Code HC (Human, checked), README A1 (Mostly automated). I wrote the code by hand: a Python version at ConUHacks VII in 2023, then a C++ rewrite in 2025. In 2026 AI wrote the security fix and this README. Provided as is, with no warranty." src=".github/assets/hai.svg" width="100%"></a>
+<a href="https://haiscale.amolven.com/"><img alt="HAI Scale Code HC (Human, checked), README A1 (Mostly automated). I wrote the code by hand: a Python version at ConUHacks VII in 2023, then a C++ rewrite in 2025. In 2026 AI wrote the security fix and this README. Provided as is, with no warranty." src="https://raw.githubusercontent.com/amolvenkataraman/TotalControl/main/.github/assets/hai.svg" width="100%"></a>
 <!-- header:end -->
 
 A keyboard-driven command launcher. Press a shortcut and a small window pops up. Type a short
